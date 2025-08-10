@@ -1,10 +1,39 @@
+let game;
+
+document.addEventListener("DOMContentLoaded", () => {
+    let playButton = document.getElementById("playButton");
+    let difficultyModal = document.getElementById("difficultyModal");
+    let difficultyButtons = document.querySelectorAll(".difficulty-btn");
+    let gameCanvas = document.getElementById("gameCanvas");
+
+    playButton.addEventListener("click", () => {
+        difficultyModal.style.display = "flex";
+    });
+
+    difficultyButtons.forEach(btn => {
+        btn.addEventListener("click", () => {
+            const difficulty = btn.getAttribute("data-difficulty");
+            difficultyModal.style.display = "none";
+            playButton.style.display = "none";
+            gameCanvas.style.display = "flex"
+            startGame(difficulty);
+            //document.getElementById("gameCanvas").focus();
+        });
+    });
+});
+
+function startGame(difficulty) {
+    game = new GameEngine(difficulty);
+}
+
 class GameEngine {
-    constructor() {
+    constructor(difficulty) {
         this.canvas = document.getElementById("gameCanvas");
         this.context = this.canvas.getContext("2d");
         this.rows = 15;
         this.columns = 21;
         this.cellSize = 32;
+        this.difficulty = difficulty;
         
         this.rules = ["Green - Stay away from ghosts!", "Red - Don't fall into shifting lava pits!", "Blue - Beware of shooting ice spikes!"];
         this.currentLayer = 0;
@@ -12,9 +41,9 @@ class GameEngine {
         this.player = new Player(this.canvas, this.context, this.rows, this.columns, this.cellSize);
 
         this.labyrinths = [
-            new ClassicLevel(this.canvas, this.context, this.rows, this.columns, this.cellSize, this.player),
-            new LavaLevel(this.canvas, this.context, this.rows, this.columns, this.cellSize, this.player),
-            new IceLevel(this.canvas, this.context, this.rows, this.columns, this.cellSize, this.player)
+            new ClassicLevel(this.canvas, this.context, this.rows, this.columns, this.cellSize, this.player, this.difficulty),
+            new LavaLevel(this.canvas, this.context, this.rows, this.columns, this.cellSize, this.player, this.difficulty),
+            new IceLevel(this.canvas, this.context, this.rows, this.columns, this.cellSize, this.player, this.difficulty)
         ];
 
         this.canvas.focus();
@@ -127,18 +156,81 @@ class GameEngine {
     killPlayer() {
         this.player.moving = false;
         this.player.currentDirection = {x: 0, y: 0};
-        let rulesDiv = document.getElementById('rules');
+        this.gameOver = true;
+
+        const rulesDiv = document.getElementById('rules');
+        const scoreDiv = document.getElementById('score');
+        const canvas = this.canvas;
+        const gameOverModal = document.getElementById('gameOverModal');
+        let deathMessageText = document.getElementById("deathMessageText");
+        const finalScoreText = document.getElementById('finalScoreText');
+        const resetButton = document.getElementById('resetButton');
+        let resetEasy = document.getElementById("resetEasy");
+        let resetMedium = document.getElementById("resetMedium");
+        let resetHard = document.getElementById("resetHard");
+
         if (this.currentLayer === 0) {
-            rulesDiv.textContent = "💀 Game Over! A ghost spooked you! 💀";
+            deathMessageText.textContent = "💀 A ghost spooked you! 💀";
         }
         else if (this.currentLayer === 1) {
-            rulesDiv.textContent = "💀 Game Over! You plunged into lava! 💀";
+            deathMessageText.textContent = "💀 You plunged into lava! 💀";
         }
         else {
-            rulesDiv.textContent = "💀 Game Over! An ice spike skewered you! 💀";
+            deathMessageText.textContent = "💀 An ice spike skewered you! 💀";
         }
         rulesDiv.style.color = "red";
-        this.gameOver = true;
+
+        finalScoreText.textContent = `Final Score: ${scoreDiv.textContent.replace("Score: ", "")}`;
+        canvas.style.display = "none";
+        gameOverModal.style.display = "flex";
+        gameOverModal.style.zIndex = "1000";
+
+        resetButton.onclick = () => {
+            gameOverModal.style.display = "none";
+            rulesDiv.style.color = "#eee";
+            canvas.style.display = "block";
+            scoreDiv.textContent = "";
+            this.resetGame();
+        }
+        resetEasy.onclick = () => {
+            gameOverModal.style.display = "none";
+            rulesDiv.style.color = "#eee";
+            canvas.style.display = "block";
+            scoreDiv.textContent = "";
+            this.difficulty = "easy";
+            this.resetGame();
+        }
+        resetMedium.onclick = () => {
+            gameOverModal.style.display = "none";
+            rulesDiv.style.color = "#eee";
+            canvas.style.display = "block";
+            scoreDiv.textContent = "";
+            this.difficulty = "medium";
+            this.resetGame();
+        }
+        resetHard.onclick = () => {
+            gameOverModal.style.display = "none";
+            rulesDiv.style.color = "#eee";
+            canvas.style.display = "block";
+            scoreDiv.textContent = "";
+            this.difficulty = "hard";
+            this.resetGame();
+        }
+    }
+
+    resetGame() {
+        this.currentLayer = 0;
+        this.gameOver = false;
+        this.player = new Player(this.canvas, this.context, this.rows, this.columns, this.cellSize);
+        this.labyrinths = [
+            new ClassicLevel(this.canvas, this.context, this.rows, this.columns, this.cellSize, this.player, this.difficulty),
+            new LavaLevel(this.canvas, this.context, this.rows, this.columns, this.cellSize, this.player, this.difficulty),
+            new IceLevel(this.canvas, this.context, this.rows, this.columns, this.cellSize, this.player, this.difficulty)
+        ];
+        this.showRules();
+        this.showScore();
+        this.canvas.focus();
+        this.gameLoop();
     }
 
     gameLoop() {
@@ -210,10 +302,14 @@ class Labyrinth {
         }
     }
 
+    resetScore() {
+        this.score = 0;
+    }
+
 }
 
 class ClassicLevel extends Labyrinth{
-    constructor(canvas, context, rows, columns, cellSize, player) {
+    constructor(canvas, context, rows, columns, cellSize, player, difficulty) {
         let layout = [
             [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
             [1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,1],
@@ -222,7 +318,7 @@ class ClassicLevel extends Labyrinth{
             [1,0,1,1,1,0,1,1,1,0,1,0,1,1,1,0,1,1,1,0,1],
             [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
             [1,0,1,1,1,0,1,1,1,0,1,0,1,1,1,0,1,1,1,0,1],
-            [1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1],
+            [1,0,1,0,0,0,0,0,0,0,3,0,0,0,0,0,0,0,1,0,1],
             [1,0,1,0,1,1,1,0,1,1,1,1,1,0,1,1,1,0,1,0,1],
             [1,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,1],
             [1,1,1,0,1,0,1,1,1,0,1,0,1,1,1,0,1,0,1,1,1],
@@ -233,6 +329,7 @@ class ClassicLevel extends Labyrinth{
         ];
         super(canvas, context, rows, columns, cellSize, layout, player);
         this.ghostsGenerated = false;
+        this.difficulty = difficulty;
     }
 
     drawLabyrinth() {
@@ -262,12 +359,20 @@ class ClassicLevel extends Labyrinth{
     }
 
     generateGhosts() {
-        this.ghosts = [
-            new Ghost(1, 1, 1 * this.cellSize, 1 * this.cellSize),
-            new Ghost(1, 13, 1 * this.cellSize, 13 * this.cellSize),
-            new Ghost(19, 1, 19 * this.cellSize, 1 * this.cellSize),
-            new Ghost(19, 13, 19 * this.cellSize, 13 * this.cellSize),
-        ];
+        if (this.difficulty === "easy") {
+            this.ghosts = [
+                new Ghost(1, 1, 1 * this.cellSize, 1 * this.cellSize, this.difficulty),
+                new Ghost(19, 13, 19 * this.cellSize, 13 * this.cellSize, this.difficulty),
+            ];
+        }
+        else {
+            this.ghosts = [
+                new Ghost(1, 1, 1 * this.cellSize, 1 * this.cellSize, this.difficulty),
+                new Ghost(1, 13, 1 * this.cellSize, 13 * this.cellSize, this.difficulty),
+                new Ghost(19, 1, 19 * this.cellSize, 1 * this.cellSize, this.difficulty),
+                new Ghost(19, 13, 19 * this.cellSize, 13 * this.cellSize, this.difficulty),
+            ];
+        }
     }
 
     updateGhosts() {
@@ -400,7 +505,7 @@ class ClassicLevel extends Labyrinth{
 }
 
 class LavaLevel extends Labyrinth {
-    constructor(canvas, context, rows, columns, cellSize, player) {
+    constructor(canvas, context, rows, columns, cellSize, player, difficulty) {
         let layout = [
             [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1], // 1
             [1,0,0,0,1,0,0,0,1,0,1,1,0,1,0,0,0,1,0,0,1], // 2
@@ -419,6 +524,7 @@ class LavaLevel extends Labyrinth {
             [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]  // 15
         ];
         super(canvas, context, rows, columns, cellSize, layout, player);
+        this.difficulty = difficulty;
         this.frame = 0;
         this.crackFrame = 100;
     }
@@ -469,7 +575,7 @@ class LavaLevel extends Labyrinth {
         let available = [];
         for (let y = 0; y < this.rows; y++) {
             for (let x = 0; x < this.columns; x++) {
-                if (this.layout[y][x] === 0) {
+                if (this.layout[y][x] === 0 || this.layout[y][x] === 3) {
                     available.push({x, y});
                 }
             }
@@ -478,7 +584,11 @@ class LavaLevel extends Labyrinth {
             let j = Math.floor(Math.random() * (i + 1));
             [available[i], available[j]] = [available[j], available[i]];
         }
-        this.cracks = available.slice(0, 20);
+        switch (this.difficulty) {
+            case "easy": this.cracks = available.slice(0, 10); break;
+            case "medium": this.cracks = available.slice(0, 15); break;
+            case "hard": this.cracks = available.slice(0, 20); break;
+        }
     }
 
     generateLavaHoles() {
@@ -503,6 +613,9 @@ class LavaLevel extends Labyrinth {
                 if (this.layout[y][x] === 2) {
                     this.layout[y][x] = 0;
                 }
+                else if (this.layout[y][x] === 5) {
+                    this.layout[y][x] = 3;
+                }
             }
         }
     }
@@ -510,7 +623,7 @@ class LavaLevel extends Labyrinth {
 }
 
 class IceLevel extends Labyrinth{
-    constructor(canvas, context, rows, columns, cellSize, player) {
+    constructor(canvas, context, rows, columns, cellSize, player, difficulty) {
         let layout = [
             [1,4,1,1,1,4,1,1,1,1,1,4,1,1,1,1,1,1,1,4,1], // 1
             [4,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,4], // 2
@@ -529,6 +642,7 @@ class IceLevel extends Labyrinth{
             [1,4,1,1,1,1,1,1,1,4,1,4,1,1,1,4,1,1,1,4,1]  // 15
         ];
         super(canvas, context, rows, columns, cellSize, layout, player);
+        this.difficulty = difficulty;
         this.frame = 0;
         this.wallSpikeFrame = 100;
         this.flyingSpikeFrame = 200;
@@ -638,7 +752,11 @@ class IceLevel extends Labyrinth{
             let j = Math.floor(Math.random() * (i + 1));
             [available[i], available[j]] = [available[j], available[i]];
         }
-        this.spikes = available.slice(0, 8);
+        switch (this.difficulty) {
+            case "easy": this.spikes = available.slice(0, 4); break;
+            case "medium": this.spikes = available.slice(0, 6); break;
+            case "hard": this.spikes = available.slice(0, 8); break;
+        }
     }
 
     generateFlyingIceSpikes() {
@@ -660,7 +778,7 @@ class IceLevel extends Labyrinth{
                     x--;
                     break;
             }
-            this.flyingSpikes.push(new IceSpike(x, y, x * this.cellSize, y * this.cellSize, direction));
+            this.flyingSpikes.push(new IceSpike(x, y, x * this.cellSize, y * this.cellSize, direction, this.difficulty));
         }
         this.wallSpikes = [];
     }
@@ -771,28 +889,32 @@ class Player {
 }
 
 class IceSpike {
-    constructor(gridX, gridY, pixelX, pixelY, direction) {
+    constructor(gridX, gridY, pixelX, pixelY, direction, difficulty) {
         this.gridX = gridX;
         this.gridY = gridY;
         this.pixelX = pixelX;
         this.pixelY = pixelY;
         this.direction = direction;
-        this.speed = 8;
+        switch (difficulty) {
+            case "easy": this.speed = 4; break;
+            case "medium": this.speed = 6; break;
+            case "hard": this.speed = 8; break;
+        }
     }
 }
 
 class Ghost {
-    constructor(gridX, gridY, pixelX, pixelY) {
+    constructor(gridX, gridY, pixelX, pixelY, difficulty) {
         this.gridX = gridX;
         this.gridY = gridY;
         this.pixelX = pixelX;
         this.pixelY = pixelY;
-        this.speed = 2;
+        switch (difficulty) {
+            case "easy": this.speed = 1; break;
+            case "medium": this.speed = 1; break;
+            case "hard": this.speed = 2; break;
+        }
         this.path = [];
         this.moving = false;
     }
 }
-
-window.onload = () => {
-  new GameEngine();
-};
