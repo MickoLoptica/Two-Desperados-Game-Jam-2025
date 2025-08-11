@@ -5,6 +5,7 @@ document.addEventListener("DOMContentLoaded", () => {
     let difficultyModal = document.getElementById("difficultyModal");
     let difficultyButtons = document.querySelectorAll(".difficulty-btn");
     let gameCanvas = document.getElementById("gameCanvas");
+    let gameDescription = document.getElementById("gameDescription");
 
     playButton.addEventListener("click", () => {
         difficultyModal.style.display = "flex";
@@ -15,15 +16,50 @@ document.addEventListener("DOMContentLoaded", () => {
             const difficulty = btn.getAttribute("data-difficulty");
             difficultyModal.style.display = "none";
             playButton.style.display = "none";
-            gameCanvas.style.display = "flex"
+            gameDescription.style.display = "none";
+            gameCanvas.style.display = "flex";
             startGame(difficulty);
-            //document.getElementById("gameCanvas").focus();
         });
     });
 });
 
 function startGame(difficulty) {
+    if (game && game.animationFrameId) {
+        cancelAnimationFrame(game.animationFrameId);
+    }
     game = new GameEngine(difficulty);
+    setupEventListeners();
+}
+
+function setupEventListeners() {
+    document.onkeydown = (e) => {
+        if (!game || game.gameOver) return;
+        switch (e.key) {
+            case 'ArrowUp':
+            case 'w':
+            case 'W':
+                game.player.nextDirection = { x: 0, y: -1 };
+                break;
+            case 'ArrowDown':
+            case 's':
+            case 'S':
+                game.player.nextDirection = { x: 0, y: 1 };
+                break;
+            case 'ArrowLeft':
+            case 'a':
+            case 'A':
+                game.player.nextDirection = { x: -1, y: 0 };
+                break;
+            case 'ArrowRight':
+            case 'd':
+            case 'D':
+                game.player.nextDirection = { x: 1, y: 0 };
+                break;
+            case ' ':
+                game.changeLayer();
+                break;
+        }
+    };
 }
 
 class GameEngine {
@@ -34,24 +70,30 @@ class GameEngine {
         this.columns = 21;
         this.cellSize = 32;
         this.difficulty = difficulty;
-        
         this.rules = ["Green - Stay away from ghosts!", "Red - Don't fall into shifting lava pits!", "Blue - Beware of shooting ice spikes!"];
         this.currentLayer = 0;
-
         this.player = new Player(this.canvas, this.context, this.rows, this.columns, this.cellSize);
-
         this.labyrinths = [
             new ClassicLevel(this.canvas, this.context, this.rows, this.columns, this.cellSize, this.player, this.difficulty),
             new LavaLevel(this.canvas, this.context, this.rows, this.columns, this.cellSize, this.player, this.difficulty),
             new IceLevel(this.canvas, this.context, this.rows, this.columns, this.cellSize, this.player, this.difficulty)
         ];
-
+        this.score = 0;
+        this.maxScore = 0;
+        for (let labyrinth of this.labyrinths) {
+            for (let y = 0; y < labyrinth.layout.length; y++) {
+                for (let x = 0; x < labyrinth.layout[y].length; x++) {
+                    if (labyrinth.layout[y][x] === 0) {
+                        this.maxScore += 10;
+                    }
+                }
+            }
+        }
+        console.log(this.maxScore);
+        this.animationFrameId = null;
         this.canvas.focus();
         this.showRules();
-        this.showScore();
-
-        this.setupEventListeners();
-
+        this.calculateScore();
         this.gameLoop();
     }
 
@@ -60,43 +102,54 @@ class GameEngine {
         rulesDiv.textContent = this.rules[this.currentLayer];
     }
 
-    showScore() {
-        let scoreSum = 0;
+    calculateScore() {
+        this.score = 0;
         for (let labyrinth of this.labyrinths) {
-            scoreSum += labyrinth.score;
+            this.score += labyrinth.score;
         }
         let scoreDiv = document.getElementById("score");
-        scoreDiv.textContent = "Score: " + scoreSum;
+        scoreDiv.textContent = "Score: " + this.score;
     }
 
-    setupEventListeners() {
-        document.addEventListener('keydown', (e) => {
-            switch(e.key) {
-                case 'ArrowUp':
-                case 'w':
-                case 'W':
-                    this.player.nextDirection = {x: 0, y: -1};
-                    break;
-                case 'ArrowDown':
-                case 's':
-                case 'S':
-                    this.player.nextDirection = {x: 0, y: 1};
-                    break;
-                case 'ArrowLeft':
-                case 'a':
-                case 'A':
-                    this.player.nextDirection = {x: -1, y: 0};
-                    break;
-                case 'ArrowRight':
-                case 'd':
-                case 'D':
-                    this.player.nextDirection = {x: 1, y: 0};
-                    break;
-                case ' ':
-                    this.changeLayer();
-                    break;
-            }
-        });
+    drawPlayer() {
+        let canTeleport = false;
+        let nextLayer = (this.currentLayer + 1) % this.labyrinths.length;
+        let playerX = this.player.gridPos.x;
+        let playerY = this.player.gridPos.y;
+        let nextLayout = this.labyrinths[nextLayer].layout;
+
+        if (
+            nextLayout[playerY] &&
+            nextLayout[playerY][playerX] !== 1 &&
+            nextLayout[playerY][playerX] !== 4
+        ) {
+            canTeleport = true;
+        }
+
+        this.context.fillStyle = this.player.color;
+        this.context.beginPath();
+        this.context.arc(
+            this.player.pixelPos.x + this.cellSize / 2,
+            this.player.pixelPos.y + this.cellSize / 2,
+            this.cellSize / 2 - 4,
+            0,
+            Math.PI * 2
+        );
+        this.context.fill();
+
+        if (canTeleport) {
+            this.context.strokeStyle = "limegreen";
+            this.context.lineWidth = 4;
+            this.context.beginPath();
+            this.context.arc(
+                this.player.pixelPos.x + this.cellSize / 2,
+                this.player.pixelPos.y + this.cellSize / 2,
+                this.cellSize / 2 - 2,
+                0,
+                Math.PI * 2
+            );
+            this.context.stroke();
+        }
     }
 
     isValidPosition(x, y) {
@@ -112,7 +165,7 @@ class GameEngine {
                 let newX = this.player.gridPos.x + this.player.nextDirection.x;
                 let newY = this.player.gridPos.y + this.player.nextDirection.y;
                 if (this.isValidPosition(newX, newY)) {
-                    this.player.currentDirection = {...this.player.nextDirection};
+                    this.player.currentDirection = { ...this.player.nextDirection };
                 }
             }
             if (this.player.currentDirection.x !== 0 || this.player.currentDirection.y !== 0) {
@@ -127,7 +180,7 @@ class GameEngine {
                     this.player.gridPos.x = newX;
                     this.player.gridPos.y = newY;
                 } else {
-                    this.player.currentDirection = {x: 0, y: 0};
+                    this.player.currentDirection = { x: 0, y: 0 };
                 }
             }
         } else {
@@ -147,7 +200,7 @@ class GameEngine {
 
     changeLayer() {
         let nextLayer = (this.currentLayer + 1) % this.labyrinths.length;
-        if (this.labyrinths[nextLayer].layout[this.player.gridPos.y][this.player.gridPos.x] === 0) {
+        if (this.labyrinths[nextLayer].layout[this.player.gridPos.y][this.player.gridPos.x] !== 1 && this.labyrinths[nextLayer].layout[this.player.gridPos.y][this.player.gridPos.x] !== 4) {
             this.currentLayer = nextLayer;
             this.showRules();
         }
@@ -155,13 +208,13 @@ class GameEngine {
 
     killPlayer() {
         this.player.moving = false;
-        this.player.currentDirection = {x: 0, y: 0};
+        this.player.currentDirection = { x: 0, y: 0 };
         this.gameOver = true;
 
         const rulesDiv = document.getElementById('rules');
         const scoreDiv = document.getElementById('score');
         const canvas = this.canvas;
-        const gameOverModal = document.getElementById('gameOverModal');
+        let gameOverModal = document.getElementById("gameOverModal");
         let deathMessageText = document.getElementById("deathMessageText");
         const finalScoreText = document.getElementById('finalScoreText');
         const resetButton = document.getElementById('resetButton');
@@ -190,47 +243,78 @@ class GameEngine {
             rulesDiv.style.color = "#eee";
             canvas.style.display = "block";
             scoreDiv.textContent = "";
-            this.resetGame();
-        }
+            startGame(this.difficulty);
+        };
         resetEasy.onclick = () => {
             gameOverModal.style.display = "none";
             rulesDiv.style.color = "#eee";
             canvas.style.display = "block";
             scoreDiv.textContent = "";
-            this.difficulty = "easy";
-            this.resetGame();
-        }
+            startGame("easy");
+        };
         resetMedium.onclick = () => {
             gameOverModal.style.display = "none";
             rulesDiv.style.color = "#eee";
             canvas.style.display = "block";
             scoreDiv.textContent = "";
-            this.difficulty = "medium";
-            this.resetGame();
-        }
+            startGame("medium");
+        };
         resetHard.onclick = () => {
             gameOverModal.style.display = "none";
             rulesDiv.style.color = "#eee";
             canvas.style.display = "block";
             scoreDiv.textContent = "";
-            this.difficulty = "hard";
-            this.resetGame();
-        }
+            startGame("hard");
+        };
     }
 
-    resetGame() {
-        this.currentLayer = 0;
-        this.gameOver = false;
-        this.player = new Player(this.canvas, this.context, this.rows, this.columns, this.cellSize);
-        this.labyrinths = [
-            new ClassicLevel(this.canvas, this.context, this.rows, this.columns, this.cellSize, this.player, this.difficulty),
-            new LavaLevel(this.canvas, this.context, this.rows, this.columns, this.cellSize, this.player, this.difficulty),
-            new IceLevel(this.canvas, this.context, this.rows, this.columns, this.cellSize, this.player, this.difficulty)
-        ];
-        this.showRules();
-        this.showScore();
-        this.canvas.focus();
-        this.gameLoop();
+    finishGame() {
+        this.player.moving = false;
+        this.player.currentDirection = { x: 0, y: 0 };
+        this.gameOver = true;
+        
+        let gameWinModal = document.getElementById("gameWinModal");
+        let playAgain = document.getElementById("playAgain");
+
+        let winEasy = document.getElementById("winEasy");
+        let winMedium = document.getElementById("winMedium");
+        let winHard = document.getElementById("winHard");
+
+        const rulesDiv = document.getElementById('rules');
+        const scoreDiv = document.getElementById('score');
+        const canvas = this.canvas;
+
+        gameWinModal.style.display = "flex";
+        gameWinModal.style.zIndex = "1000";
+
+        playAgain.onclick = () => {
+            gameWinModal.style.display = "none";
+            rulesDiv.style.color = "#eee";
+            canvas.style.display = "block";
+            scoreDiv.textContent = "";
+            startGame(this.difficulty);
+        };
+        winEasy.onclick = () => {
+            gameWinModal.style.display = "none";
+            rulesDiv.style.color = "#eee";
+            canvas.style.display = "block";
+            scoreDiv.textContent = "";
+            startGame("easy");
+        };
+        winMedium.onclick = () => {
+            gameWinModal.style.display = "none";
+            rulesDiv.style.color = "#eee";
+            canvas.style.display = "block";
+            scoreDiv.textContent = "";
+            startGame("medium");
+        };
+        winHard.onclick = () => {
+            gameWinModal.style.display = "none";
+            rulesDiv.style.color = "#eee";
+            canvas.style.display = "block";
+            scoreDiv.textContent = "";
+            startGame("hard");
+        };
     }
 
     gameLoop() {
@@ -240,9 +324,12 @@ class GameEngine {
             }
             this.updatePlayerDirection();
             this.labyrinths[this.currentLayer].drawLabyrinth();
-            this.player.drawPlayer();
-            this.showScore();
-            requestAnimationFrame(() => this.gameLoop());
+            this.drawPlayer();
+            this.calculateScore();
+            if (this.score === this.maxScore) {
+                this.finishGame();
+            }
+            this.animationFrameId = requestAnimationFrame(() => this.gameLoop());
         }
     }
 }
@@ -394,10 +481,13 @@ class ClassicLevel extends Labyrinth{
                 let nextStepFound = false;
                 while (ghost.pathIndex < ghost.path.length) {
                     let next = ghost.path[ghost.pathIndex];
-                    let occupied = this.ghosts.some(g =>
-                        g !== ghost && g.gridX === next.x && g.gridY === next.y
-                    );
+                    let occupied = false;
+                    if (this.layout[ghost.path[ghost.pathIndex].y][ghost.path[ghost.pathIndex].x] == 2 || this.layout[ghost.path[ghost.pathIndex].y][ghost.path[ghost.pathIndex].x] == 5) {
+                        occupied = true;
+                    }
                     if (!occupied) {
+                        ghost.targetGridX = next.x;
+                        ghost.targetGridY = next.y;
                         ghost.targetPixelX = next.x * this.cellSize;
                         ghost.targetPixelY = next.y * this.cellSize;
                         ghost.moving = true;
@@ -411,7 +501,7 @@ class ClassicLevel extends Labyrinth{
                 }
             }
 
-            if (ghost.moving) {
+            if (ghost.moving && !(this.layout[ghost.targetGridY][ghost.targetGridX] === 2 || this.layout[ghost.targetGridY][ghost.targetGridX] === 5)) {
                 let dx = ghost.targetPixelX - ghost.pixelX;
                 if (Math.abs(dx) <= ghost.speed) {
                     ghost.pixelX = ghost.targetPixelX;
@@ -531,14 +621,22 @@ class LavaLevel extends Labyrinth {
 
     drawLabyrinth() {
         this.context.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        let phaseDuration = Math.floor(this.crackFrame / 3);
         if (this.frame === this.crackFrame) {
             this.removeLavaHoles();
             this.generateLavaHoles();
             this.generateCracks();
             this.frame = 0;
-        }
+        } 
         else {
             this.frame++;
+            if (this.cracks) {
+                for (let crack of this.cracks) {
+                    if (this.frame % phaseDuration === 0 && crack.stage < 2) {
+                        crack.stage++;
+                    }
+                }
+            }
         }
         for (let y = 0; y < this.rows; y++) {
             for (let x = 0; x < this.columns; x++) {
@@ -553,15 +651,19 @@ class LavaLevel extends Labyrinth {
                 else {
                     this.context.fillStyle = "#222";
                     this.context.fillRect(x * this.cellSize, y * this.cellSize, this.cellSize, this.cellSize);
-                    if (this.cracks && this.cracks.some(c => c.x === x && c.y === y)) {
-                        this.context.strokeStyle = "#dd571c";
-                        this.context.lineWidth = 2;
-                        this.context.beginPath();
-                        this.context.moveTo(x * this.cellSize, y * this.cellSize);
-                        this.context.lineTo((x + 1) * this.cellSize, (y + 1) * this.cellSize);
-                        this.context.moveTo((x + 1) * this.cellSize, y * this.cellSize);
-                        this.context.lineTo(x * this.cellSize, (y + 1) * this.cellSize);
-                        this.context.stroke();
+                    if (this.cracks) {
+                        let crack = this.cracks.find(c => c.x === x && c.y === y);
+                        if (crack) {
+                            this.context.strokeStyle = "#dd571c";
+                            this.context.lineWidth = crack.stage + 1;
+                            this.context.beginPath();
+                            let offset = (2 - crack.stage) * 2;
+                            this.context.moveTo(x * this.cellSize + offset, y * this.cellSize + offset);
+                            this.context.lineTo((x + 1) * this.cellSize - offset, (y + 1) * this.cellSize - offset);
+                            this.context.moveTo((x + 1) * this.cellSize - offset, y * this.cellSize + offset);
+                            this.context.lineTo(x * this.cellSize + offset, (y + 1) * this.cellSize - offset);
+                            this.context.stroke();
+                        }
                     }
                 }
             }
@@ -576,7 +678,7 @@ class LavaLevel extends Labyrinth {
         for (let y = 0; y < this.rows; y++) {
             for (let x = 0; x < this.columns; x++) {
                 if (this.layout[y][x] === 0 || this.layout[y][x] === 3) {
-                    available.push({x, y});
+                    available.push({x, y, stage: 0});
                 }
             }
         }
@@ -879,13 +981,6 @@ class Player {
         this.color = "#ffff00";
     }
 
-    drawPlayer() {
-        this.context.fillStyle = this.color;
-        this.context.beginPath();
-        this.context.arc(this.pixelPos.x + this.cellSize / 2, this.pixelPos.y + this.cellSize / 2, this.cellSize / 2 - 4, 0, Math.PI * 2);
-        this.context.fill();
-    }
-
 }
 
 class IceSpike {
@@ -916,5 +1011,6 @@ class Ghost {
         }
         this.path = [];
         this.moving = false;
+        this.path = [];
     }
 }

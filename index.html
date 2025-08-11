@@ -9,13 +9,17 @@
 <body>
     <header>
         <h1>Hell, Ice & Haunts</h1>
-        <p>Use arrow keys to move, SPACE to change layer.</p>
+        <p>Use WASD keys to move, SPACE to change layer.</p>
         <div id="rules"></div>
         <div id="score" style="margin-top: 10px; font-weight: bold;"></div>
     </header>
 
     <main>
         <button id="playButton">Play</button>
+        <div id="gameDescription">
+            Collect all the coins across all three labyrinths to win the game.<br>
+            You can teleport between labyrinths by pressing SPACE, but only when your character is glowing green.
+        </div>
         <canvas id="gameCanvas" width="672" height="480" tabindex="0" style="display:none;"></canvas>
     </main>
 
@@ -38,6 +42,18 @@
             <button class="difficulty-btn change-difficulty-btn" data-difficulty="easy" id="resetEasy">Easy</button>
             <button class="difficulty-btn change-difficulty-btn" data-difficulty="medium" id="resetMedium">Medium</button>
             <button class="difficulty-btn change-difficulty-btn" data-difficulty="hard" id="resetHard">Hard</button>
+        </div>
+    </div>
+
+    <div id="gameWinModal" class="modal" style="display:none;">
+        <div class="modal-content">
+            <h2>Congratulations!</h2>
+            <p>You have completed the game!</p>
+            <button id="playAgain">Play Again</button>
+            <h3 style="margin-top:20px;">Change difficulty:</h3>
+            <button class="difficulty-btn change-difficulty-btn" data-difficulty="easy" id="winEasy">Easy</button>
+            <button class="difficulty-btn change-difficulty-btn" data-difficulty="medium" id="winMedium">Medium</button>
+            <button class="difficulty-btn change-difficulty-btn" data-difficulty="hard" id="winHard">Hard</button>
         </div>
     </div>
 

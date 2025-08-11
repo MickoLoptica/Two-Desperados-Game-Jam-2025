@@ -39,7 +39,12 @@ header p {
 }
 
 main {
-    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    max-width: 700px;
+    margin: 0 auto;
 }
 
 #gameCanvas {
@@ -102,7 +107,8 @@ main {
 #resetButton,
 #resetEasy,
 #resetMedium,
-#resetHard {
+#resetHard,
+#playAgain {
     padding: 10px 20px;
     margin: 5px;
     font-size: 1rem;
@@ -119,7 +125,8 @@ main {
 #resetButton:hover,
 #resetEasy:hover,
 #resetMedium:hover,
-#resetHard:hover {
+#resetHard:hover,
+#playAgain:hover {
     background-color: #ffdb4d;
 }
 
@@ -127,7 +134,8 @@ main {
 #resetButton:active,
 #resetEasy:active,
 #resetMedium:active,
-#resetHard:active {
+#resetHard:active,
+#playAgain:active {
     transform: scale(0.97);
 }
 
@@ -158,4 +166,31 @@ footer {
     font-size: 1.3rem;
     margin-bottom: 20px;
     color: #eee;
+}
+
+#gameWinModal .modal-content {
+    padding: 25px 30px;
+    max-width: 400px;
+}
+
+#gameWinModal h2 {
+    font-size: 2rem;
+    margin-bottom: 20px;
+    color: #33cc33;
+}
+
+#gameWinModal p {
+    font-size: 1.3rem;
+    margin-bottom: 20px;
+    color: #eee;
+}
+
+#gameDescription {
+    margin: 20px auto 30px auto;
+    font-size: 1.1rem;
+    color: #ccc;
+    max-width: 600px;
+    text-align: center;
+    line-height: 1.4;
+    user-select: none;
 }
