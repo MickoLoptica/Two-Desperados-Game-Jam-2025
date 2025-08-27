@@ -1,6 +1,6 @@
 # Hell, Ice & Haunts
 
-**Hell, Ice & Haunts** is a browser game featuring three interconnected labyrinths where the player must collect all the coins across all three worlds to win.
+**Hell, Ice & Haunts** is a browser game featuring three interconnected labyrinths where the player must collect all the coins across all three worlds to win. Link to the game: https://ognjennikolic.itch.io/hell-ice-haunts
 
 ---
 
